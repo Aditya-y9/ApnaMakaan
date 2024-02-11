@@ -105,21 +105,37 @@ def resolve_collisions(room1, colliding_rooms, expand_walls=True):
         resolve_collision(room1, other_room, expand_walls)
 
 def resolve_collision(room1, room2, expand_walls=True):
-    x_overlap = max(0, min(room1['position'][0] + room1['size'][0], room2['position'][0] + room2['size'][0]) - max(room1['position'][0], room2['position'][0]))
-    y_overlap = max(0, min(room1['position'][1] + room1['size'][1], room2['position'][1] + room2['size'][1]) - max(room1['position'][1], room2['position'][1]))
+    # Resolve a collision between two rooms
+    # lessen the size of the room of overlap till its minimum size or no overlap whichever is earlier
+    x1, y1, w1, h1 = room1['position'][0], room1['position'][1], room1['size'][0], room1['size'][1]
+    x2, y2, w2, h2 = room2['position'][0], room2['position'][1], room2['size'][0], room2['size'][1]
+
+    if x1 < x2:
+        x_overlap = x1 + w1 - x2
+    else:
+        x_overlap = x2 + w2 - x1
+    
+    if y1 < y2:
+        y_overlap = y1 + h1 - y2
+    else:
+        y_overlap = y2 + h2 - y1
 
     if x_overlap < y_overlap:
-        if expand_walls:
-            room1['position'] = (room1['position'][0] - x_overlap / 2, room1['position'][1])
-            room1['size'] = (room1['size'][0] + x_overlap, room1['size'][1])
+        if x1 < x2:
+            room1['size'] = (w1 - x_overlap, h1)
         else:
-            room1['position'] = (room1['position'][0] + x_overlap, room1['position'][1])
+            room1['size'] = (w1 - x_overlap, h1)
     else:
-        if expand_walls:
-            room1['position'] = (room1['position'][0], room1['position'][1] - y_overlap / 2)
-            room1['size'] = (room1['size'][0], room1['size'][1] + y_overlap)
+        if y1 < y2:
+            room1['size'] = (w1, h1 - y_overlap)
         else:
-            room1['position'] = (room1['position'][0], room1['position'][1] + y_overlap)
+            room1['size'] = (w1, h1 - y_overlap)
+
+    if expand_walls:
+        room1['size'] = increase_room_size(room1, PLOT_SIZE[0], PLOT_SIZE[1])['size']
+
+    return room1
+
 
 def genetic_algorithm(num_bedrooms):
 
