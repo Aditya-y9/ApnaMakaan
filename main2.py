@@ -49,28 +49,52 @@ def evaluate_fitness(floor_plan):
 
     # Penalize floor plans with overlapping rooms
     for room in floor_plan:
+        # Find all rooms that overlap with the current room
         colliding_rooms = find_colliding_rooms(room, floor_plan)
         resolve_collisions(room, colliding_rooms)
+        total_area -= sum(room['size'][0] * room['size'][1] for room in colliding_rooms)
 
     return total_area
 
 def crossover(parent1, parent2):
-    crossover_point = random.randint(1, min(len(parent1['rooms']), len(parent2['rooms'])) - 1)
-    new_rooms = parent1['rooms'][:crossover_point] + parent2['rooms'][crossover_point:]
 
-    return {'rooms': new_rooms, 'fitness': 0}
+    # crossover is the process of combining two parents to create a child
+    # ensure that the child has no overlapping rooms
+
+    child = {'rooms': [], 'fitness': 0}
+
+    for room1, room2 in zip(parent1['rooms'], parent2['rooms']):
+        if random.random() < 0.5:
+            child['rooms'].append(room1)
+        else:
+            child['rooms'].append(room2)
+
+    # Ensure that the child has at least MIN_NUM_ROOMS rooms
+    if len(child['rooms']) < MIN_NUM_ROOMS:
+        child['rooms'] += generate_random_rooms(MIN_NUM_ROOMS - len(child['rooms']), external=True)
+
+    return child
+
 
 def increase_room_size(room, max_width, max_height):
-    position = room['position']
-    size = room['size']
 
-    available_width = max_width - position[0] - size[0]
-    available_height = max_height - position[1] - size[1]
+    free_space_to_expand = (max_width - room['position'][0] - room['size'][0], max_height - room['position'][1] - room['size'][1])
 
-    if available_width > 0 and available_height > 0:
-        size = (min(size[0] + available_width, max_width), min(size[1] + available_height, max_height))
+    if free_space_to_expand[0] < 0 or free_space_to_expand[1] < 0:
+        return room
+    
+    if free_space_to_expand[0] < free_space_to_expand[1]:
+        new_width = min(room['size'][0] + free_space_to_expand[0], max_width)
+        new_height = room['size'][1]
 
-    return {'position': position, 'size': size}
+    else:
+        new_width = room['size'][0]
+        new_height = min(room['size'][1] + free_space_to_expand[1], max_height)
+
+    return {'position': room['position'], 'size': (new_width, new_height), 'external': room.get('external', False)}
+
+
+
 
 def mutate(floor_plan, expand_walls=True):
     mutated_plan = floor_plan.copy()
@@ -140,15 +164,23 @@ def resolve_collision(room1, room2, expand_walls=True):
 def genetic_algorithm(num_bedrooms):
 
     print("Generating initial population...")
+
+    # population is a list of dictionaries
+    # each dictionary has keys 'rooms' and 'fitness'
+    # so each dictionary represents a floor plan
     population = generate_initial_population(num_bedrooms)
+
     best_floor_plan = None
 
     fig, ax = plt.subplots()
 
+    # set constraints for the plot
     ax.set_xlim(0, PLOT_SIZE[0])
     ax.set_ylim(0, PLOT_SIZE[1])
 
     def update_plot(generation):
+
+        # update the plot with the best floor plan
         nonlocal best_floor_plan
         nonlocal population
 
@@ -156,23 +188,38 @@ def genetic_algorithm(num_bedrooms):
         ax.set_xlim(0, PLOT_SIZE[0])
         ax.set_ylim(0, PLOT_SIZE[1])
 
+        # for each room
         for room in best_floor_plan['rooms']:
             position = room['position']
             size = room['size']
             edge_color = 'black' if room.get('external', False) else 'r'
-            rect = Rectangle((position[0], position[1]), size[0], size[1], linewidth=0.9, edgecolor=edge_color, facecolor='none')
+            rect = Rectangle((position[0], position[1]), size[0], size[1], linewidth=1, edgecolor=edge_color, facecolor='none')
             ax.add_patch(rect)
 
         plt.title(f'Generation {generation}, Fitness: {best_floor_plan["fitness"]}')
         plt.draw()
 
     for generation in range(NUM_GENERATIONS):
+
+
+        # for each chromosome
         for i in range(POPULATION_SIZE):
+            # set the fitness pa
             population[i]['fitness'] = evaluate_fitness(population[i]['rooms'])
 
+        # sort the population by fitness
+        # the best floor plan is the one with the highest fitness
         parents = sorted(population, key=lambda x: x['fitness'], reverse=True)[:2]
 
+        # now make a new population
+        # by crossing over the parents
+        # which are the two best floor plans
+        # and then mutating the new floor plans
         new_population = [crossover(parents[0], parents[1]) for _ in range(POPULATION_SIZE)]
+
+        # mutate every floor plan of the new population
+        # new population is a list of dictionaries
+        # it is created by crossing over the two best floor plans
         new_population = [mutate(floor_plan) for floor_plan in new_population]
 
         population = new_population
