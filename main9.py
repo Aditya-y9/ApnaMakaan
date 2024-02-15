@@ -22,86 +22,46 @@ class RoomPlanner(object):
         self.MIN_AREA = MIN_AREA
 
     def generate_initial_population(self):
-        # numpy array to store the population
-        # each individual is a 2D array of room coordinates
-        # 1 represents a room, 0 represents empty space
-        self.population = np.zeros((self.POPULATION_SIZE, self.PLOT_SIZE[0], self.PLOT_SIZE[1]))
-        self.new_population = np.zeros((self.POPULATION_SIZE, self.PLOT_SIZE[0], self.PLOT_SIZE[1]))
+        # our empty population
+        population = []
 
-        for i in range(self.POPULATION_SIZE):
-            num_rooms = np.random.randint(self.MIN_NUM_ROOMS, self.MIN_NUM_ROOMS + 3)
-            prev_room = None  # To keep track of the previous room
-            for j in range(num_rooms):
-                room_size = (np.random.randint(self.MIN_ROOM_SIZE[0], self.PLOT_SIZE[0] // 2),
-                            np.random.randint(self.MIN_ROOM_SIZE[1], self.PLOT_SIZE[1] // 2))
-                
-                if prev_room:
-                    # Append the room immediately at the boundary of the previous room
-                    room_x = prev_room['position'][0] + prev_room['size'][0]
-                    room_y = prev_room['position'][1] + prev_room['size'][1]
-                else:
-                    # First room, place it randomly
-                    room_x = np.random.randint(0, self.PLOT_SIZE[0] - room_size[0])
-                    room_y = np.random.randint(0, self.PLOT_SIZE[1] - room_size[1])
-                    
-                self.population[i, room_x:room_x + room_size[0], room_y:room_y + room_size[1]] = 1
-                prev_room = {'position': (room_x, room_y), 'size': room_size}
+        # generate random rooms for each individual in the population
+        for _ in range(self.POPULATION_SIZE):
+            # append the random rooms to the population
+            population.append({'rooms': self.generate_random_rooms(existing_rooms=[]), 'fitness': 0})
+
+        return population
 
 
-    def generate_random_rooms(self, prev_room=None):
+    def generate_random_rooms(self, existing_rooms):
+        # our empty population
+        population = []
 
-        # initially we have an empty floor plan
-        floor_plan = np.zeros(self.PLOT_SIZE)
+        # generate random rooms for each individual in the population
+        for _ in range(self.POPULATION_SIZE):
+            # append the random rooms to the population
+            population.append(self.generate_random_room(existing_rooms))
+        return population
 
-        # rooms in chromosome
-        rooms = []
-
-        # generate random rooms
-        for _ in range(self.MIN_NUM_ROOMS, self.NUM_BEDROOMS + 1):
-            # generate a random room
-            room = self.generate_random_room(floor_plan, prev_room)
-            if room is not None:
-                rooms.append(room)
-                prev_room = room
-        return {'rooms': rooms, 'fitness': self.evaluate_fitness(floor_plan)}
-
-    def generate_random_room(self, floor_plan, prev_room=None, attempts=0):
+    def generate_random_room(self, existing_rooms):
         # initialize the room
         room = {'position': (0, 0), 'size': (0, 0)}
 
         # generate a random room size
-        room['size'] = (np.random.randint(self.MIN_ROOM_SIZE[0], self.PLOT_SIZE[0] - room['size'][0] if prev_room else self.PLOT_SIZE[0] - room['size'][0]),
-                        np.random.randint(self.MIN_ROOM_SIZE[1], self.PLOT_SIZE[1] - room['size'][1] if prev_room else self.PLOT_SIZE[1] - room['size'][1]))
+        while room['size'][0] < self.MIN_ROOM_SIZE[0] or room['size'][1] < self.MIN_ROOM_SIZE[1]:
+            room['size'] = (np.random.randint(1, self.PLOT_SIZE[0]),
+                            np.random.randint(1, self.PLOT_SIZE[1]))
 
-        # generate a random room position
-        # it should start from empty boundary of plot or from the boundary of previous room
-        boundary_clear = {'left': True, 'right': True, 'top': True, 'bottom': True}
-        if prev_room:
-            boundary = [prev_room['position'][i] - room['size'][i] if prev_room['position'][i] > room['size'][i] else prev_room['position'][i] + prev_room['size'][i] for i in range(2)]
-        else:
-            boundary = np.random.choice(['left', 'right', 'top', 'bottom'])
-        if boundary[0] == 'left':
-            room['position'] = (0, np.random.randint(0, self.PLOT_SIZE[1] - room['size'][1]))
-            boundary_clear['left'] = False
-        elif boundary[0] == 'right':
-            room['position'] = (self.PLOT_SIZE[0] - room['size'][0], np.random.randint(0, self.PLOT_SIZE[1] - room['size'][1]))
-            boundary_clear['right'] = False
-        elif boundary[1] == 'top':
-            room['position'] = (np.random.randint(0, self.PLOT_SIZE[0] - room['size'][0]), 0)
-            boundary_clear['top'] = False
-        else:
-            room['position'] = (np.random.randint(0, self.PLOT_SIZE[0] - room['size'][0]), self.PLOT_SIZE[1] - room['size'][1])
-            boundary_clear['bottom'] = False
+        # generate a random room position without overlapping
+        overlap = True
+        while overlap:
+            room['position'] = (np.random.randint(0, self.PLOT_SIZE[0] - room['size'][0]),
+                                np.random.randint(0, self.PLOT_SIZE[1] - room['size'][1]))
 
-        # check for collision
-        if self.check_collision(floor_plan, room['position'], room['size']):
-            if attempts < 10:  # limit the number of attempts
-                self.resolve_collisions(floor_plan, room['position'], room['size'])
-                return self.generate_random_room(floor_plan, room, attempts=attempts + 1)
-            else:
-                return None
-        else:
-            return room
+            # Check for overlaps with existing rooms
+            overlap = any(self.check_collision(existing_room, room['position'], room['size']) for existing_room in existing_rooms)
+
+        return room
     
 
 
@@ -154,7 +114,7 @@ class RoomPlanner(object):
             else:
                 height -= 1
         return (x, y), (width, height)
-    
+
     def plot_rooms(self, rooms):
         fig, ax = plt.subplots()
         border = Rectangle((0, 0), self.PLOT_SIZE[0], self.PLOT_SIZE[1], fill=False, color='black')
@@ -164,12 +124,17 @@ class RoomPlanner(object):
         ax.set_xlim(0, self.PLOT_SIZE[0])
         ax.set_ylim(0, self.PLOT_SIZE[1])
         plt.show()
-        return fig, ax  # Return the figure and axis objects
-
-
-
-
-
+    
+    def plot_rooms(self, rooms):
+        fig, ax = plt.subplots(figsize=(10, 5))  # Adjust the figsize to your preference
+        border = Rectangle((0, 0), self.PLOT_SIZE[0], self.PLOT_SIZE[1], fill=False, color='black')
+        ax.add_patch(border)
+        for room in rooms:
+            ax.add_patch(Rectangle(room['position'], room['size'][0], room['size'][1], fill=False, color='red'))
+        ax.set_xlim(0, self.PLOT_SIZE[0])
+        ax.set_ylim(0, self.PLOT_SIZE[1])
+        ax.set_aspect('equal', adjustable='box')  # Set aspect ratio of the plot
+        plt.show()
 
     def plot_room_boundaries(self, rooms):
         fig, ax = plt.subplots()
@@ -234,16 +199,16 @@ class RoomPlanner(object):
 
                 if best_floor_plan['fitness'] == np.prod(self.PLOT_SIZE):
                     return best_floor_plan
-
+                
                 if generation % 10 == 0:
-                    self.update_plot(best_floor_plan, ax, generation)
+                    self.update_plot(best_floor_plan, ax)
                     plt.pause(0.1)
                     plt.draw()
 
                 if generation % 100 == 0:
                     print(f"Generation {generation + 1}/{self.NUM_GENERATIONS}, Fitness: {best_floor_plan['fitness']}")
 
-            self.update_plot(best_floor_plan, ax, generation)
+            self.update_plot(best_floor_plan, ax)
             plt.pause(0.1)
             plt.draw()
             parents = self.select_parents(population)
@@ -261,23 +226,19 @@ class RoomPlanner(object):
         parents = np.random.choice(population, size=len(population), p=probabilities, replace=False)
         return parents
     
-    def update_plot(self, best_floor_plan, ax, generation):
+    def update_plot(self, best_floor_plan, ax):
         ax.clear()
+        ax.set_xlim(0, self.PLOT_SIZE[0])
+        ax.set_ylim(0, self.PLOT_SIZE[1])
         for room in best_floor_plan['rooms']:
             position = room['position']
             size = room['size']
-            edge_color = 'black' if room.get('external', False) else 'red'
-            
-            # Set width and height parameters correctly in Rectangle
-            rect = Rectangle((position[0], position[1]), size[0], size[1], linewidth=5, edgecolor=edge_color)
-            ax.add_patch(rect)
-            
-        ax.set_xlim(0, self.PLOT_SIZE[0])
-        ax.set_ylim(0, self.PLOT_SIZE[1])
+            edge_color = 'BLACK' if room.get('external', False) else 'RED'
+            rect = Rectangle((position[0], position[1]), size[0], size[1], linewidth=5, edgecolor=edge_color, facecolor='none')
+            # ax.add_patch(rect)
         plt.title(f'Generation {generation}, Fitness: {best_floor_plan["fitness"]}')
         plt.draw()
         return ax
-
     
     def draw_rooms_pygame(self, rooms, screen):
         for room in rooms:
@@ -354,14 +315,11 @@ class RoomPlanner(object):
 if __name__ == '__main__':
     planner = RoomPlanner()
     population = planner.generate_initial_population()
-    fig, ax = planner.plot_rooms(population[0]['rooms'])
-    plt.show()  # Call plt.show() outside the method
-
-
+    planner.plot_rooms(population[0]['rooms'])
     # offspring1, offspring2 = planner.crossover(population[0], population[1])
     # planner.plot_rooms(offspring1['rooms'])
     # planner.plot_rooms(offspring2['rooms'])
     # mutated_plan = planner.mutate(population[0])
     # planner.plot_rooms(mutated_plan['rooms'])
-    best_floor_plan = planner.genetic_algorithm()
-    planner.plot_rooms(best_floor_plan['rooms'])
+    # best_floor_plan = planner.genetic_algorithm()
+    # planner.plot_rooms(best_floor_plan['rooms'])
