@@ -6,7 +6,7 @@ class RoomPlanner(object):
     def __init__(self, PLOT_SIZE=(50, 100), MIN_ROOM_SIZE=(10, 10), NUM_BEDROOMS=2,
                  POPULATION_SIZE=50, NUM_GENERATIONS=500, MUTATION_RATE=2,
                  MAX_MUTATION_PERCENTAGE=0.1, SIZE_INCREASE_FACTOR=1000,
-                 COLLISION_RESOLUTION_STEPS=4, MIN_NUM_ROOMS=2,
+                 COLLISION_RESOLUTION_STEPS=10, MIN_NUM_ROOMS=2,
                  GRID_SIZE=(10, 10), MIN_AREA=10):
         self.PLOT_SIZE = PLOT_SIZE
         self.MIN_ROOM_SIZE = MIN_ROOM_SIZE
@@ -251,9 +251,9 @@ class RoomPlanner(object):
         for room in best_floor_plan['rooms']:
             position = room['position']
             size = room['size']
-            edge_color = 'black' if room.get('external', False) else 'r'
-            rect = Rectangle((position[0], position[1]), size[0], size[1], linewidth=0.9, edgecolor=edge_color, facecolor='none')
-            ax.add_patch(rect)
+            edge_color = 'BLACK' if room.get('external', False) else 'RED'
+            rect = Rectangle((position[0], position[1]), size[0], size[1], linewidth=5, edgecolor=edge_color, facecolor='none')
+            # ax.add_patch(rect)
         plt.title(f'Generation {generation}, Fitness: {best_floor_plan["fitness"]}')
         plt.draw()
         return ax
