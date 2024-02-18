@@ -22,60 +22,26 @@ class RoomPlanner(object):
         self.MIN_AREA = MIN_AREA
 
     def generate_initial_population(self):
-        # our empty population
         population = []
-
-        # generate random rooms for each individual in the population
         for _ in range(self.POPULATION_SIZE):
-
-            # append the random rooms to the population
             population.append(self.generate_random_rooms())
         return population
 
     def generate_random_rooms(self):
-        # initially we have an empty floor plan
         floor_plan = np.zeros(self.PLOT_SIZE)
-
-        # rooms in chromosome
         rooms = []
-
-        # generate random rooms
-        for _ in range(self.MIN_NUM_ROOMS):
-            # generate a random room
-            room = self.generate_random_room(floor_plan)
+        for i in range(self.MIN_NUM_ROOMS):
+            room_name = f"Room_{i + 1}"
+            room = self.generate_random_room(floor_plan, room_name)
             if room is not None:
                 rooms.append(room)
         return rooms
 
-
-    def generate_random_room(self, floor_plan):
-
-        # initialize the room
-        room = {'position': (0, 0), 'size': (0, 0)}
-
-        # generate a random room size
-        # increase size till it fits in the plot
+    def generate_random_room(self, floor_plan, room_name):
+        room = {'name': room_name, 'position': (0, 0), 'size': (0, 0)}
         while room['size'][0] < self.MIN_ROOM_SIZE[0] or room['size'][1] < self.MIN_ROOM_SIZE[1]:
             room['size'] = (np.random.randint(1, self.PLOT_SIZE[0]),
                             np.random.randint(1, self.PLOT_SIZE[1]))
-            
-        # generate a random room position
-        # # it should start from empty boundary of plot
-        # boundary_clear = {'left': True, 'right': True, 'top': True, 'bottom': True}
-        # boundary = np.random.choice(['left', 'right', 'top', 'bottom'])
-        # if boundary == 'left':
-        #     room['position'] = (0, np.random.randint(0, self.PLOT_SIZE[1] - room['size'][1]))
-        #     boundary_clear['left'] = False
-        # elif boundary == 'right':
-        #     room['position'] = (self.PLOT_SIZE[0] - room['size'][0], np.random.randint(0, self.PLOT_SIZE[1] - room['size'][1]))
-        #     boundary_clear['right'] = False
-        # elif boundary == 'top':
-        #     room['position'] = (np.random.randint(0, self.PLOT_SIZE[0] - room['size'][0]), 0)
-        #     boundary_clear['top'] = False
-        # else:
-        #     room['position'] = (np.random.randint(0, self.PLOT_SIZE[0] - room['size'][0]), self.PLOT_SIZE[1] - room['size'][1])
-        #     boundary_clear['bottom'] = False
-            
         corner_clear = {'top_left': True, 'top_right': True, 'bottom_left': True, 'bottom_right': True}
         corner = np.random.choice(['top_left', 'top_right', 'bottom_left', 'bottom_right'])
         if corner == 'top_left':
@@ -90,41 +56,27 @@ class RoomPlanner(object):
         else:
             room['position'] = (self.PLOT_SIZE[0] - room['size'][0], self.PLOT_SIZE[1] - room['size'][1])
             corner_clear['bottom_right'] = False
-
-            
-
-        # check for collision
         if self.check_collision(floor_plan, room['position'], room['size']):
             self.resolve_collisions(floor_plan, room['position'], room['size'])
             return room
         return None
-    
 
 
-    def evaluate_fitness(self, floor_plan):
-        return self.calculate_fitness(floor_plan)
-    
-    def calculate_fitness(self, floor_plan):
-        return self.calculate_area_fitness(floor_plan)
-    
+
     def calculate_area_fitness(self, floor_plan):
         total_area = 0
         for room in floor_plan:
             total_area += room['size'][0] * room['size'][1]
-            
-            # Reduce fitness if there is overlap
             colliding_rooms = self.find_colliding_rooms(room, floor_plan)
             if colliding_rooms:
-                total_area -= 100*sum(overlap_area(room, colliding_room) for colliding_room in colliding_rooms)
+                total_area -= 100 * sum(self.overlap_area(room, colliding_room) for colliding_room in colliding_rooms)
                 total_area = 0
-        
         return total_area
 
-    def overlap_area(room1, room2):
+    def overlap_area(self, room1, room2):
         x_overlap = max(0, min(room1['position'][0] + room1['size'][0], room2['position'][0] + room2['size'][0]) - max(room1['position'][0], room2['position'][0]))
         y_overlap = max(0, min(room1['position'][1] + room1['size'][1], room2['position'][1] + room2['size'][1]) - max(room1['position'][1], room2['position'][1]))
         return x_overlap * y_overlap
-
 
     def crossover(self, parent1, parent2):
         offspring1 = {'rooms': [], 'fitness': 0}
@@ -140,7 +92,7 @@ class RoomPlanner(object):
             else:
                 offspring2['rooms'].append(room)
         return offspring1, offspring2
-    
+
     def mutate(self, floor_plan):
         mutated_plan = floor_plan.copy()
         for room in mutated_plan['rooms']:
@@ -165,31 +117,55 @@ class RoomPlanner(object):
             else:
                 height -= 1
         return (x, y), (width, height)
-
-    def plot_rooms(self, rooms):
-        fig, ax = plt.subplots(figsize=(10, 5))  # You can adjust the width and height as needed
-        border = Rectangle((0, 0), self.PLOT_SIZE[0], self.PLOT_SIZE[1], fill=False, color='black')
-        ax.add_patch(border)
-        for room in rooms:
-            ax.add_patch(Rectangle(room['position'], room['size'][0], room['size'][1], fill=False, color='black'))
-        ax.set_xlim(0, self.PLOT_SIZE[0])
-        ax.set_ylim(0, self.PLOT_SIZE[1])
-        ax.set_aspect('equal', adjustable='box')
-        plt.show()
-
     
     def plot_rooms(self, rooms):
         fig, ax = plt.subplots()
-        border = Rectangle((0, 0), self.PLOT_SIZE[0], self.PLOT_SIZE[1], fill=False, color='black')
+        border = Rectangle((0, 0), self.PLOT_SIZE[0], self.PLOT_SIZE[1], fill=False, color='brown')
         ax.add_patch(border)
 
         for room in rooms:
-            ax.add_patch(Rectangle(room['position'], room['size'][0], room['size'][1], fill=False, color='brown', linewidth=5))
+            position = room['position']
+            size = room['size']
+            color = 'black' if room.get('external', False) else 'brown'
+            rect = Rectangle((position[0], position[1]), size[0], size[1], linewidth=5, edgecolor=color, facecolor='none')
+            ax.add_patch(rect)
+
+            room_name = room['name']
+            room_center = (position[0] + size[0] / 2, position[1] + size[1] / 2)
+            print(room_center)
+            print(room_name)
+            ax.text(room_center[0], room_center[1], room_name, fontsize=12, ha='center', va='center')
 
         ax.set_xlim(0, self.PLOT_SIZE[0])
         ax.set_ylim(0, self.PLOT_SIZE[1])
         ax.set_aspect('equal', adjustable='box')
         plt.show()
+
+
+    # def plot_rooms(self, rooms):
+    #     fig, ax = plt.subplots(figsize=(10, 5))  # You can adjust the width and height as needed
+    #     border = Rectangle((0, 0), self.PLOT_SIZE[0], self.PLOT_SIZE[1], fill=False, color='black')
+    #     ax.add_patch(border)
+    #     for room in rooms:
+    #         ax.add_patch(Rectangle(room['position'], room['size'][0], room['size'][1], fill=False, color='black'))
+    #     ax.set_xlim(0, self.PLOT_SIZE[0])
+    #     ax.set_ylim(0, self.PLOT_SIZE[1])
+    #     ax.set_aspect('equal', adjustable='box')
+    #     plt.show()
+
+    
+    # def plot_rooms(self, rooms):
+    #     fig, ax = plt.subplots()
+    #     border = Rectangle((0, 0), self.PLOT_SIZE[0], self.PLOT_SIZE[1], fill=False, color='black')
+    #     ax.add_patch(border)
+
+    #     for room in rooms:
+    #         ax.add_patch(Rectangle(room['position'], room['size'][0], room['size'][1], fill=False, color='brown', linewidth=5))
+
+    #     ax.set_xlim(0, self.PLOT_SIZE[0])
+    #     ax.set_ylim(0, self.PLOT_SIZE[1])
+    #     ax.set_aspect('equal', adjustable='box')
+    #     plt.show()
 
 
     def plot_room_boundaries(self, rooms):
@@ -369,10 +345,9 @@ class RoomPlanner(object):
             pygame.draw.line(screen, color, (position[0], position[1] + size[1]), (position[0] + size[0], position[1] + size[1]), 5)
 
 if __name__ == '__main__':
-    while True:
-        planner = RoomPlanner()
-        population = planner.generate_initial_population()
-        planner.plot_rooms(population[0])
+    planner = RoomPlanner()
+    population = planner.generate_initial_population()
+    planner.plot_rooms(population[0])
 
     # offspring1, offspring2 = planner.crossover(population[0], population[1])
     # planner.plot_rooms(offspring1['rooms'])
