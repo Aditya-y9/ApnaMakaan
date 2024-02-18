@@ -60,21 +60,38 @@ class RoomPlanner(object):
                             np.random.randint(1, self.PLOT_SIZE[1]))
             
         # generate a random room position
-        # it should start from empty boundary of plot
-        boundary_clear = {'left': True, 'right': True, 'top': True, 'bottom': True}
-        boundary = np.random.choice(['left', 'right', 'top', 'bottom'])
-        if boundary == 'left':
-            room['position'] = (0, np.random.randint(0, self.PLOT_SIZE[1] - room['size'][1]))
-            boundary_clear['left'] = False
-        elif boundary == 'right':
-            room['position'] = (self.PLOT_SIZE[0] - room['size'][0], np.random.randint(0, self.PLOT_SIZE[1] - room['size'][1]))
-            boundary_clear['right'] = False
-        elif boundary == 'top':
-            room['position'] = (np.random.randint(0, self.PLOT_SIZE[0] - room['size'][0]), 0)
-            boundary_clear['top'] = False
+        # # it should start from empty boundary of plot
+        # boundary_clear = {'left': True, 'right': True, 'top': True, 'bottom': True}
+        # boundary = np.random.choice(['left', 'right', 'top', 'bottom'])
+        # if boundary == 'left':
+        #     room['position'] = (0, np.random.randint(0, self.PLOT_SIZE[1] - room['size'][1]))
+        #     boundary_clear['left'] = False
+        # elif boundary == 'right':
+        #     room['position'] = (self.PLOT_SIZE[0] - room['size'][0], np.random.randint(0, self.PLOT_SIZE[1] - room['size'][1]))
+        #     boundary_clear['right'] = False
+        # elif boundary == 'top':
+        #     room['position'] = (np.random.randint(0, self.PLOT_SIZE[0] - room['size'][0]), 0)
+        #     boundary_clear['top'] = False
+        # else:
+        #     room['position'] = (np.random.randint(0, self.PLOT_SIZE[0] - room['size'][0]), self.PLOT_SIZE[1] - room['size'][1])
+        #     boundary_clear['bottom'] = False
+            
+        corner_clear = {'top_left': True, 'top_right': True, 'bottom_left': True, 'bottom_right': True}
+        corner = np.random.choice(['top_left', 'top_right', 'bottom_left', 'bottom_right'])
+        if corner == 'top_left':
+            room['position'] = (0, 0)
+            corner_clear['top_left'] = False
+        elif corner == 'top_right':
+            room['position'] = (self.PLOT_SIZE[0] - room['size'][0], 0)
+            corner_clear['top_right'] = False
+        elif corner == 'bottom_left':
+            room['position'] = (0, self.PLOT_SIZE[1] - room['size'][1])
+            corner_clear['bottom_left'] = False
         else:
-            room['position'] = (np.random.randint(0, self.PLOT_SIZE[0] - room['size'][0]), self.PLOT_SIZE[1] - room['size'][1])
-            boundary_clear['bottom'] = False
+            room['position'] = (self.PLOT_SIZE[0] - room['size'][0], self.PLOT_SIZE[1] - room['size'][1])
+            corner_clear['bottom_right'] = False
+
+            
 
         # check for collision
         if self.check_collision(floor_plan, room['position'], room['size']):
