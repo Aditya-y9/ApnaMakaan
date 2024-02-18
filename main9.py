@@ -6,7 +6,7 @@ class RoomPlanner(object):
     def __init__(self, PLOT_SIZE=(50, 100), MIN_ROOM_SIZE=(10, 10), NUM_BEDROOMS=2,
                  POPULATION_SIZE=50, NUM_GENERATIONS=500, MUTATION_RATE=2,
                  MAX_MUTATION_PERCENTAGE=0.1, SIZE_INCREASE_FACTOR=1000,
-                 COLLISION_RESOLUTION_STEPS=10, MIN_NUM_ROOMS=2,
+                 COLLISION_RESOLUTION_STEPS=100, MIN_NUM_ROOMS=2,
                  GRID_SIZE=(10, 10), MIN_AREA=10):
         self.PLOT_SIZE = PLOT_SIZE
         self.MIN_ROOM_SIZE = MIN_ROOM_SIZE
@@ -48,20 +48,23 @@ class RoomPlanner(object):
         room = {'position': (0, 0), 'size': (0, 0)}
 
         # generate a random room size
-        while room['size'][0] < self.MIN_ROOM_SIZE[0] or room['size'][1] < self.MIN_ROOM_SIZE[1]:
-            room['size'] = (np.random.randint(1, self.PLOT_SIZE[0]),
-                            np.random.randint(1, self.PLOT_SIZE[1]))
+        room['size'] = (np.random.randint(1, self.PLOT_SIZE[0]),
+                        np.random.randint(1, self.PLOT_SIZE[1]))
 
-        # generate a random room position without overlapping
-        overlap = True
-        while overlap:
+        # try a limited number of times to generate a room without overlap
+        max_attempts = 100
+        for _ in range(max_attempts):
+            # generate a random room position
             room['position'] = (np.random.randint(0, self.PLOT_SIZE[0] - room['size'][0]),
                                 np.random.randint(0, self.PLOT_SIZE[1] - room['size'][1]))
 
             # Check for overlaps with existing rooms
-            overlap = any(self.check_collision(existing_room, room['position'], room['size']) for existing_room in existing_rooms)
+            if not any(self.check_collision(existing_room, room['position'], room['size']) for existing_room in existing_rooms):
+                return room
 
-        return room
+        # If no suitable position is found, you may choose to raise an exception or handle it as needed.
+        raise ValueError("Unable to find a suitable position for the room after multiple attempts.")
+
     
 
 
