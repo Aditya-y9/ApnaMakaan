@@ -124,6 +124,7 @@ class RoomPlanner(object):
         ax.add_patch(border)
 
         for room in rooms:
+            print(room['name'])
             position = room['position']
             size = room['size']
             color = 'black' if room.get('external', False) else 'brown'
