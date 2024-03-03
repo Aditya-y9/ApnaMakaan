@@ -124,14 +124,13 @@ class RoomPlanner(object):
         living_room,corner = self.generate_living_room(floor_plan,corner_clear)
         rooms.append(living_room)
         rooms.append(self.generate_door(floor_plan, living_room,corner))
+        rooms.append(self.generate_narrow_kitchen(floor_plan,living_room,corner))
         for i in range(self.MIN_NUM_ROOMS):
             room_name = f"Room_{i + 1}"
             room = self.generate_random_room(floor_plan, room_name)
             if room is not None:
                 rooms.append(room)
         return rooms
-    
-    
 
     def generate_living_room(self, floor_plan,corner_clear):
         living_room = {'name': 'Living Room', 'position': (0, 0), 'size': (40, 40)}
@@ -478,7 +477,8 @@ if __name__ == '__main__':
         print("Initial population generated")
         print("Plotting rooms...")
         print(population)
-        population = [[{'name': 'Living Room', 'position': (0, 0), 'size': (40, 40)}, {'name': 'Bedroom 1', 'position': (0,60), 'size': (50, 40)}, {'name': 'Kitchen', 'position': (0,40), 'size': (40, 20)}, {'name': 'door', 'position': (0, 0), 'size': (5, 5)}]]                               
+        population = [[{'name': 'Living Room', 'position': (0,60), 'size': (40, 40)}, {'name': 'Bedroom 1', 'position': (20,0), 'size': (30, 50)}, {'name': 'Kitchen', 'position': (0,20), 'size': (20, 40)}, {'name': 'door', 'position': (0, 60), 'size': (5, 5)},{'name': 'toilet', 'position': (0, 60), 'size': (5, 5)}]]   
+                       
         planner.plot_rooms(population[0])
 
     # offspring1, offspring2 = planner.crossover(population[0], population[1])
