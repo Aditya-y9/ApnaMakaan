@@ -1,9 +1,10 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 class RoomPlanner(object):
-    def __init__(self, PLOT_SIZE=(50, 100), MIN_ROOM_SIZE=(10, 10), NUM_BEDROOMS=2,
+    def __init__(self, PLOT_SIZE=(50, 100), MIN_ROOM_SIZE=(10, 10), NUM_BEDROOMS=1,
                  POPULATION_SIZE=50, NUM_GENERATIONS=500, MUTATION_RATE=2,
                  MAX_MUTATION_PERCENTAGE=0.1, SIZE_INCREASE_FACTOR=1000,
                  COLLISION_RESOLUTION_STEPS=10, MIN_NUM_ROOMS=2,
@@ -33,39 +34,50 @@ class RoomPlanner(object):
             population.append(self.generate_random_rooms())
         return population
     
-    def generate_bedrooms(self, floor_plan):
+    def generate_bedrooms(self, floor_plan,rooms,corner_clear):
         bedrooms = []
-        for i in range(self.NUM_BEDROOMS-2):
+        for i in range(self.NUM_BEDROOMS):
             print(f"Generating bedroom {i + 1}...")
             bedroom_name = f"Bedroom {i + 1}"
-            bedrooms.append(self.generate_proper_bedroom(floor_plan, bedroom_name, bedrooms))
-        return bedrooms
+            rooms = self.generate_proper_bedroom(floor_plan, bedroom_name, bedrooms,rooms,corner_clear)
+            print("This is the bedrooms: ", rooms)
+        return rooms,corner_clear
     
     
-    def generate_proper_bedroom(self, floor_plan, bedroom_name, bedrooms):
+    def generate_proper_bedroom(self, floor_plan, bedroom_name, bedrooms, rooms,corner_clear):
         # take into consideration the minimum size of the bedroom
         # and the approximation factor
         bedroom = {'name': bedroom_name, 'position': (0, 0), 'size': (0, 0)}
-        while bedroom['size'][0] < self.BEDROOM_SIZE[0] or bedroom['size'][1] < self.BEDROOM_SIZE[1]:
+        
+        while bedroom['size'][0] < self.BEDROOM_SIZE[0] or bedroom['size'][1] < self.BEDROOM_SIZE[1] or bedroom['size'][0] / bedroom['size'][1] < self.MIN_XY_RATIO or bedroom['size'][0] / bedroom['size'][1] > self.MAX_XY_RATIO or bedroom['size'][0] * bedroom['size'][1] < self.MIN_AREA:
             bedroom['size'] = (np.random.randint(1, self.PLOT_SIZE[0]), np.random.randint(1, self.PLOT_SIZE[1]))
-        corner_clear = {'top_left': True, 'top_right': True, 'bottom_left': True, 'bottom_right': True}
-        corner = np.random.choice(['top_left', 'top_right', 'bottom_left', 'bottom_right'])
-        if corner == 'top_left':
-            bedroom['position'] = (0, 0)
-            corner_clear['top_left'] = False
-        elif corner == 'top_right':
-            bedroom['position'] = (self.PLOT_SIZE[0] - bedroom['size'][0], 0)
-            corner_clear['top_right'] = False
-        elif corner == 'bottom_left':
-            bedroom['position'] = (0, self.PLOT_SIZE[1] - bedroom['size'][1])
-            corner_clear['bottom_left'] = False
-        else:
-            bedroom['position'] = (self.PLOT_SIZE[0] - bedroom['size'][0], self.PLOT_SIZE[1] - bedroom['size'][1])
-            corner_clear['bottom_right'] = False
+
+        for corner in corner_clear:
+            if corner_clear[corner]:
+                if corner == 'top_left':
+                    bedroom['position'] = (0, 0)
+                    corner_clear['top_left'] = False
+                elif corner == 'top_right':
+                    bedroom['position'] = (self.PLOT_SIZE[0] - bedroom['size'][0], 0)
+                    corner_clear['top_right'] = False
+                elif corner == 'bottom_left':
+                    bedroom['position'] = (0, self.PLOT_SIZE[1] - bedroom['size'][1])
+                    corner_clear['bottom_left'] = False
+                else:
+                    bedroom['position'] = (self.PLOT_SIZE[0] - bedroom['size'][0], self.PLOT_SIZE[1] - bedroom['size'][1])
+                    corner_clear['bottom_right'] = False
+
+            
+
+
         if self.check_collision(floor_plan, bedroom['position'], bedroom['size']):
             self.resolve_collisions(floor_plan, bedroom['position'], bedroom['size'])
-            return bedrooms.append(bedroom)
-        return bedrooms.append(bedroom)
+            print("This is the bedroom: ", bedroom)
+            if rooms == None:
+                rooms = [bedroom]
+            else:
+                rooms.append(bedroom)
+            return rooms,corner_clear
     
     
     def generate_narrow_kitchen(self, floor_plan, bedrooms):
@@ -123,14 +135,14 @@ class RoomPlanner(object):
         corner_clear = {'top_left': True, 'top_right': True, 'bottom_left': True, 'bottom_right': True}
         living_room,corner = self.generate_living_room(floor_plan,corner_clear)
         rooms.append(living_room)
+
         rooms.append(self.generate_door(floor_plan, living_room,corner))
-        rooms.append(self.generate_narrow_kitchen(floor_plan,living_room,corner))
-        for i in range(self.MIN_NUM_ROOMS):
-            room_name = f"Room_{i + 1}"
-            room = self.generate_random_room(floor_plan, room_name)
-            if room is not None:
-                rooms.append(room)
+        rooms = self.generate_random_room(floor_plan, "Rooms",rooms,corner_clear)
+        # if room is not None:
+        #         rooms.append(room)
         return rooms
+    
+    
 
     def generate_living_room(self, floor_plan,corner_clear):
         living_room = {'name': 'Living Room', 'position': (0, 0), 'size': (40, 40)}
@@ -165,15 +177,15 @@ class RoomPlanner(object):
         return None
 
 
-    def generate_random_room(self, floor_plan, room_name):
+    def generate_random_room(self, floor_plan, room_name,rooms,corner_clear):
         # generate bedrroms and kitchen
-        bedrooms = self.generate_bedrooms(floor_plan)
-        rooms = bedrooms
-        for room in rooms:
-            if self.check_collision(floor_plan, room['position'], room['size']):
-                self.resolve_collisions(floor_plan, room['position'], room['size'])
-                return room
-        return None
+        rooms,corner_clear = self.generate_bedrooms(floor_plan,rooms,corner_clear)
+        # for room in rooms:
+        #     if self.check_collision(floor_plan, room['position'], room['size']):
+        #         self.resolve_collisions(floor_plan, room['position'], room['size'])
+        #         return rooms
+        print("This rooms: " , rooms)
+        return rooms
     
     def generate_door(self, floor_plan, room,corner):
         # a quarter circle at one of the corners
@@ -264,6 +276,8 @@ class RoomPlanner(object):
         fig, ax = plt.subplots()
         border = Rectangle((0, 0), self.PLOT_SIZE[0], self.PLOT_SIZE[1], fill=False, color='brown')
         ax.add_patch(border)
+        # remove outer list
+        rooms = rooms[0]
         for room in rooms:
             # if(room['name'] == 'Door'):
             #     # plot circles for doors
@@ -274,6 +288,8 @@ class RoomPlanner(object):
             #     continue
             if(room==None):
                 continue
+            
+            print("This is the room: ", room)
             position = room['position']
             size = room['size']
             color = 'black' if room.get('external', False) else 'brown'
@@ -477,8 +493,9 @@ if __name__ == '__main__':
         print("Initial population generated")
         print("Plotting rooms...")
         print(population)
-        population = [[{'name': 'Living Room', 'position': (0,60), 'size': (40, 40)}, {'name': 'Bedroom 1', 'position': (20,0), 'size': (30, 50)}, {'name': 'Kitchen', 'position': (0,20), 'size': (20, 40)}, {'name': 'door', 'position': (0, 60), 'size': (5, 5)},{'name': 'toilet', 'position': (0, 60), 'size': (5, 5)}]]   
-                       
+        # population = [[{'name': 'Living Room', 'position': (0, 0), 'size': (40, 40)}, {'name': 'Bedroom 1', 'position': (0,60), 'size': (50, 40)}, {'name': 'Kitchen', 'position': (0,40), 'size': (40, 20)}, {'name': 'door', 'position': (0, 0), 'size': (5, 5)}]]     
+        print("This is the population: ", population)
+        print("This is the population: ", population[0])                          
         planner.plot_rooms(population[0])
 
     # offspring1, offspring2 = planner.crossover(population[0], population[1])

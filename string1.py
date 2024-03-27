@@ -1,1 +1,0 @@
-txt = "I love you Yedy bby!"
